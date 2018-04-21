@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""
+Hook onto the NMEA firehose and report what we see.
+
+Author: Lasse Karstensen <lasse.karstensen@gmail.com>, April 2014.
+"""
+
+import argparse
+import sys
+from time import sleep
+from pprint import pprint
+from os import getenv
+
+from nmeabits import nmeaTCP
+from nmeabits import nmeaParser
+
+# TODO: Rewrite this to use ncurses.
+
+def main(args):
+    nt = nmeaParser()
+    i = 0
+
+    # FIXME: Report if is all quiet.
+    for msg in nmeaTCP((args.host, args.port)).forever():
+        if len(msg) == 0 or msg is None:
+            raise Exception("Empty message. Connection lost?")
+        i += 1
+        try:
+            nt.process(msg)
+        except ParseError as e:
+            print("%s %s" % (str(e), msg))
+        if i % 10 == 0:
+            nt.print_stats()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="%s - monitor NMEA0183 messages" % sys.argv[0])
+    parser.add_argument("host", help="TCP server to connect to. Examples: \"localhost\", \"192.168.1.100\"")
+    parser.add_argument("--port", type=int, default=10110, help="TCP server port to connect to. Default: 10110")
+
+    if getenv("VIM"):
+        sys.argv += ["localhost"]
+
+    if len(sys.argv) == 0:
+        parser.print_help()
+        exit()
+    args = parser.parse_args()
+
+    try:
+        main(args)
+    except KeyboardInterrupt:
+        pass
+
